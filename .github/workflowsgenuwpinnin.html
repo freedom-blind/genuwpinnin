@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>赣语输入工具HTML版</title>
+<style>
+body{font-family:sans-serif;padding:20px}
+h1{font-size:24px}
+textarea{
+  font-size:18px;
+  padding:8px;
+  width:70%;
+  height:150px;
+  resize:vertical;
+}
+.output{
+  margin-top:20px;
+  font-size:20px;
+  border-top:1px solid #ccc;
+  padding-top:10px;
+  white-space:pre-wrap; /* ✅ 保留换行 */
+}
+.controls{margin-left:10px}
+</style>
+</head>
+<body>
+<h1>赣语输入工具HTML版</h1>
+
+<textarea id="input" placeholder="输入拼音，例如 qiosj&#10;支持多行输入"></textarea>
+
+<select id="toneMode" class="controls">
+<option value="case">大小写声调</option>
+<option value="symbol">符号声调</option>
+</select>
+
+<div class="output" id="output"></div>
+
+<script>
+const toneMap = {
+  1: "̄",
+  2: "́",
+  3: "̌",
+  4: "̀",
+  5: "˙",
+  6: "˜"
+};
+
+const keyTone = {
+  'j':1,
+  'r':2,
+  'd':3,
+  'f':4,
+  't':5,
+  'l':6
+};
+
+function applyTone(vowel, tone, mode){
+  if(mode === "case"){
+    if(tone <=4){
+      return vowel + toneMap[tone];
+    }else if(tone===5){
+      return vowel.toLowerCase();
+    }else{
+      return vowel.toUpperCase();
+    }
+  }else{
+    return vowel + toneMap[tone];
+  }
+}
+
+function markSyllable(syllable, tone, mode){
+  if(syllable.includes("ii")){
+    let idx = syllable.lastIndexOf("i");
+    return syllable.slice(0, idx) + applyTone("i", tone, mode) + syllable.slice(idx+1);
+  }
+
+  if(syllable.includes("io")){
+    return syllable.replace("o", applyTone("o",tone,mode));
+  }
+  if(syllable.includes("uei")){
+    return syllable.replace("e", applyTone("e",tone,mode));
+  }
+  if(syllable.includes("iou")){
+    return syllable.replace("o", applyTone("o",tone,mode));
+  }
+
+  let vowels = ['a','e','i','o','u','ü','ï'];
+  for(let v of vowels){
+    if(syllable.includes(v)){
+      return syllable.replace(v, applyTone(v,tone,mode));
+    }
+  }
+  return syllable;
+}
+
+function preprocess(input){
+  return input.replace(/w/g, "ü");
+}
+
+function hasVowel(str){
+  return /[aeiouüï]/.test(str);
+}
+
+// ✅ 支持多行：逐行处理
+function process(input, mode){
+  let lines = input.split("\n");
+
+  let processedLines = lines.map(line=>{
+    line = preprocess(line);
+
+    let result = "";
+    let buffer = "";
+
+    for(let i=0;i<line.length;i++){
+      let ch = line[i];
+
+      if(keyTone[ch] && hasVowel(buffer)){
+        let tone = keyTone[ch];
+        result += markSyllable(buffer, tone, mode);
+        buffer = "";
+      }else{
+        buffer += ch;
+      }
+    }
+
+    result += buffer;
+    return result;
+  });
+
+  return processedLines.join("\n");
+}
+
+const inputBox = document.getElementById("input");
+const output = document.getElementById("output");
+const modeSelect = document.getElementById("toneMode");
+
+function update(){
+  output.innerText = process(inputBox.value, modeSelect.value);
+}
+
+inputBox.addEventListener("input", update);
+modeSelect.addEventListener("change", update);
+
+// ✅ Shift+i → ï（支持多行光标）
+document.addEventListener("keydown", function(e){
+  if(e.shiftKey && e.key === 'I'){
+    e.preventDefault();
+    let start = inputBox.selectionStart;
+    let end = inputBox.selectionEnd;
+    let val = inputBox.value;
+
+    inputBox.value = val.slice(0,start) + "ï" + val.slice(end);
+    inputBox.selectionStart = inputBox.selectionEnd = start+1;
+
+    update();
+  }
+});
+</script>
+
+</body>
+</html>
